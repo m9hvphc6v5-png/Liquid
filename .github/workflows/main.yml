@@ -1,0 +1,52 @@
+name: Build APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Android SDK
+        run: |
+          SDK=$HOME/android-sdk
+          mkdir -p $SDK/{cmdline-tools,platforms,build-tools,platform-tools}
+          echo "ANDROID_HOME=$SDK" >> $GITHUB_ENV
+          echo "ANDROID_SDK_ROOT=$SDK" >> $GITHUB_ENV
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O /tmp/cmd.zip
+          unzip -q /tmp/cmd.zip -d $SDK/cmdline-tools
+          mv $SDK/cmdline-tools/cmdline-tools $SDK/cmdline-tools/latest || true
+          wget -q https://dl.google.com/android/repository/platform-34-ext7_r03.zip -O /tmp/p.zip
+          unzip -q /tmp/p.zip -d $SDK/platforms
+          wget -q https://dl.google.com/android/repository/build-tools_r34-linux.zip -O /tmp/bt.zip
+          unzip -q /tmp/bt.zip -d $SDK/build-tools
+          mv $SDK/build-tools/android-14 $SDK/build-tools/34.0.0 || true
+          wget -q https://dl.google.com/android/repository/platform-tools-latest-linux.zip -O /tmp/pt.zip
+          unzip -q /tmp/pt.zip -d $SDK
+
+      - name: Install Gradle 8.7
+        run: |
+          wget -q https://services.gradle.org/distributions/gradle-8.7-bin.zip -O /tmp/g.zip
+          unzip -q /tmp/g.zip -d /opt
+          echo "/opt/gradle-8.7/bin" >> $GITHUB_PATH
+
+      - name: Build APK
+        run: |
+          rm -f local.properties
+          gradle :app:assembleDebug --no-daemon --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: liquid-glass-apk
+          path: "app/build/outputs/apk/debug/app-debug.apk"
